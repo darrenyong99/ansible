@@ -3,15 +3,6 @@
   hosts: all
   become: true
 
-  vars:
-    n8n_container_name: "n8n"
-    n8n_image: "n8nio/n8n:latest"
-    n8n_port: 5678
-    n8n_data_dir: "/opt/n8n"
-    n8n_user: "admin"
-    n8n_password: "QWEqwe123"
-    timezone: "Asia/Kuala_Lumpur"
-
   tasks:
     - name: Install required system packages
       yum:
@@ -19,6 +10,7 @@
           - yum-utils
           - device-mapper-persistent-data
           - lvm2
+          - python3-pip
         state: present
 
     - name: Add Docker CE repository
@@ -32,13 +24,13 @@
           - docker-ce
           - docker-ce-cli
           - containerd.io
-        state: present
+        state: latest
 
     - name: Enable and start Docker service
-      systemd:
+      service:
         name: docker
-        enabled: true
         state: started
+        enabled: true
 
     - name: Ensure docker group exists
       group:
@@ -51,27 +43,26 @@
         groups: docker
         append: yes
 
-    - name: Create n8n data directory
-      file:
-        path: "{{ n8n_data_dir }}"
-        state: directory
-        mode: '0755'
+    - name: Install Docker SDK for Python
+      pip:
+        name: docker
+        executable: pip3
 
     - name: Pull n8n Docker image
-      command: docker pull {{ n8n_image }}
-
-    - name: Remove old n8n container if exists
-      shell: |
-        docker rm -f {{ n8n_container_name }} || true
+      community.docker.docker_image:
+        name: n8nio/n8n
+        tag: latest
+        source: pull
 
     - name: Run n8n container
-      shell: |
-        docker run -d --name {{ n8n_container_name }} \
-          -p {{ n8n_port }}:5678 \
-          -v {{ n8n_data_dir }}:/home/node/.n8n \
-          -e N8N_BASIC_AUTH_ACTIVE=true \
-          -e N8N_BASIC_AUTH_USER={{ n8n_user }} \
-          -e N8N_BASIC_AUTH_PASSWORD={{ n8n_password }} \
-          -e TZ={{ timezone }} \
-          --restart always \
-          {{ n8n_image }}
+      community.docker.docker_container:
+        name: n8n
+        image: n8nio/n8n:latest
+        state: started
+        restart_policy: always
+        published_ports:
+          - "5678:5678"
+        env:
+          N8N_BASIC_AUTH_ACTIVE: "true"
+          N8N_BASIC_AUTH_USER: "admin"
+          N8N_BASIC_AUTH_PASSWORD: "QWEqwe123"
