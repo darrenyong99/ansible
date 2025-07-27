@@ -1,5 +1,5 @@
 ---
-- name: Install Docker and deploy n8n (secure cookie disabled, no volume)
+- name: Install Docker and deploy n8n (no volume, fix docker sdk error)
   hosts: all
   become: true
 
@@ -10,7 +10,7 @@
           - yum-utils
           - device-mapper-persistent-data
           - lvm2
-          - python3-pip
+          - python3
         state: present
 
     - name: Add Docker CE repository
@@ -32,26 +32,19 @@
         enabled: true
         state: started
 
-    - name: Install Docker SDK for Python
-      pip:
-        name: docker
-
-    - name: Stop and remove existing n8n container if any
-      shell: |
-        docker rm -f n8n || true
+    - name: Stop and remove existing n8n container (if exists)
+      shell: docker rm -f n8n || true
       ignore_errors: true
 
-    - name: Remove existing n8n data directory (optional cleanup)
+    - name: Remove old n8n data directory
       file:
         path: /root/n8n-data
         state: absent
 
-    - name: Pull n8n image
-      docker_image:
-        name: n8nio/n8n
-        source: pull
+    - name: Pull latest n8n image using docker CLI
+      shell: docker pull n8nio/n8n:latest
 
-    - name: Run n8n container using docker CLI (no volume, secure_cookie=false)
+    - name: Run n8n container using docker CLI (no volume)
       shell: |
         docker run -d --name n8n \
           -p 5678:5678 \
