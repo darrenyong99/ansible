@@ -2,23 +2,16 @@
 - name: Install Docker and deploy n8n on RHEL
   hosts: all
   become: yes
+
   vars:
-    n8n_container_name: n8n
-    n8n_image: n8nio/n8n:latest
-    n8n_port: 5678
-    n8n_data_dir: /opt/n8n/data
-    n8n_env:
-      - name: GENERIC_TIMEZONE
-        value: Asia/Kuala_Lumpur
-      - name: N8N_BASIC_AUTH_ACTIVE
-        value: "true"
-      - name: N8N_BASIC_AUTH_USER
-        value: admin
-      - name: N8N_BASIC_AUTH_PASSWORD
-        value: strongpassword
+    n8n_image: "n8nio/n8n:latest"
+    n8n_container_name: "n8n"
+    n8n_data_dir: "/opt/n8n"
+    n8n_port: "5678"
+    n8n_user: "admin"
+    n8n_password: "strongpassword"
 
   tasks:
-
     - name: Install required system packages
       yum:
         name:
@@ -45,8 +38,8 @@
     - name: Enable and start Docker service
       systemd:
         name: docker
-        state: started
         enabled: yes
+        state: started
 
     - name: Ensure docker group exists
       group:
@@ -62,29 +55,26 @@
     - name: Install Docker SDK for Python
       pip:
         name: docker
-        executable: pip3
 
     - name: Create n8n data directory
       file:
         path: "{{ n8n_data_dir }}"
         state: directory
-        owner: root
-        group: root
         mode: '0755'
 
-    - name: Pull n8n Docker image
-      community.docker.docker_image:
-        name: "{{ n8n_image }}"
-        source: pull
+    - name: Pull n8n Docker image via CLI
+      ansible.builtin.command: docker pull {{ n8n_image }}
 
-    - name: Run n8n container
-      community.docker.docker_container:
-        name: "{{ n8n_container_name }}"
-        image: "{{ n8n_image }}"
-        state: started
-        restart_policy: always
-        ports:
-          - "{{ n8n_port }}:5678"
-        volumes:
-          - "{{ n8n_data_dir }}:/home/node/.n8n"
-        env: "{{ n8n_env }}"
+    - name: Run n8n container via CLI
+      ansible.builtin.command: >
+        docker run -d --name {{ n8n_container_name }}
+        -p {{ n8n_port }}:5678
+        -v {{ n8n_data_dir }}:/home/node/.n8n
+        -e GENERIC_TIMEZONE=Asia/Kuala_Lumpur
+        -e N8N_BASIC_AUTH_ACTIVE=true
+        -e N8N_BASIC_AUTH_USER={{ n8n_user }}
+        -e N8N_BASIC_AUTH_PASSWORD={{ n8n_password }}
+        --restart always
+        {{ n8n_image }}
+      args:
+        creates: "/var/lib/docker/containers"
