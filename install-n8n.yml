@@ -19,7 +19,6 @@
           - yum-utils
           - device-mapper-persistent-data
           - lvm2
-          - python3-pip
         state: present
 
     - name: Add Docker CE repository
@@ -52,10 +51,6 @@
         groups: docker
         append: yes
 
-    - name: Install Docker SDK for Python
-      pip:
-        name: docker
-
     - name: Create n8n data directory
       file:
         path: "{{ n8n_data_dir }}"
@@ -63,21 +58,20 @@
         mode: '0755'
 
     - name: Pull n8n Docker image
-      community.docker.docker_image:
-        name: "{{ n8n_image }}"
-        source: pull
+      command: docker pull {{ n8n_image }}
+
+    - name: Remove old n8n container if exists
+      shell: |
+        docker rm -f {{ n8n_container_name }} || true
 
     - name: Run n8n container
-      community.docker.docker_container:
-        name: "{{ n8n_container_name }}"
-        image: "{{ n8n_image }}"
-        restart_policy: always
-        ports:
-          - "{{ n8n_port }}:5678"
-        volumes:
-          - "{{ n8n_data_dir }}:/home/node/.n8n"
-        env:
-          N8N_BASIC_AUTH_ACTIVE: "true"
-          N8N_BASIC_AUTH_USER: "{{ n8n_user }}"
-          N8N_BASIC_AUTH_PASSWORD: "{{ n8n_password }}"
-          TZ: "{{ timezone }}"
+      shell: |
+        docker run -d --name {{ n8n_container_name }} \
+          -p {{ n8n_port }}:5678 \
+          -v {{ n8n_data_dir }}:/home/node/.n8n \
+          -e N8N_BASIC_AUTH_ACTIVE=true \
+          -e N8N_BASIC_AUTH_USER={{ n8n_user }} \
+          -e N8N_BASIC_AUTH_PASSWORD={{ n8n_password }} \
+          -e TZ={{ timezone }} \
+          --restart always \
+          {{ n8n_image }}
