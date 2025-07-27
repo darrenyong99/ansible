@@ -25,9 +25,11 @@
           - yum-utils
           - device-mapper-persistent-data
           - lvm2
+          - python3
+          - python3-pip
         state: present
 
-    - name: Add Docker CE repo
+    - name: Add Docker CE repository
       get_url:
         url: https://download.docker.com/linux/centos/docker-ce.repo
         dest: /etc/yum.repos.d/docker-ce.repo
@@ -51,11 +53,16 @@
         name: docker
         state: present
 
-    - name: Add current user to docker group
+    - name: Add root user to docker group
       user:
-        name: "{{ ansible_user | default('ec2-user') }}"
+        name: root
         groups: docker
         append: yes
+
+    - name: Install Docker SDK for Python
+      pip:
+        name: docker
+        executable: pip3
 
     - name: Create n8n data directory
       file:
@@ -65,7 +72,7 @@
         group: root
         mode: '0755'
 
-    - name: Pull n8n image
+    - name: Pull n8n Docker image
       community.docker.docker_image:
         name: "{{ n8n_image }}"
 
@@ -80,5 +87,3 @@
         volumes:
           - "{{ n8n_data_dir }}:/home/node/.n8n"
         env: "{{ n8n_env }}"
-      environment:
-        DOCKER_HOST: unix:///var/run/docker.sock
