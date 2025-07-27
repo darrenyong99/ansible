@@ -75,6 +75,7 @@
     - name: Pull n8n Docker image
       community.docker.docker_image:
         name: "{{ n8n_image }}"
+        source: pull
 
     - name: Run n8n container
       community.docker.docker_container:
