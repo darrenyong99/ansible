@@ -65,4 +65,5 @@
           -e N8N_AUTH_EXCLUDE_ENDPOINTS="" \
           -e N8N_DISABLE_PRODUCTION_MAIN_MENU=true \
           -e N8N_SKIP_WEBHOOK_DEREGISTRATION_SHUTDOWN=true \
-          n8nio/n8n:latest
+          n8nio/n8n:latest n8n
+
