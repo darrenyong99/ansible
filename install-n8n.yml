@@ -3,7 +3,7 @@
   become: true
 
   tasks:
-    - name: Install required system packages
+    - name: Install required packages
       yum:
         name:
           - yum-utils
@@ -18,15 +18,15 @@
         url: https://download.docker.com/linux/centos/docker-ce.repo
         dest: /etc/yum.repos.d/docker-ce.repo
 
-    - name: Install Docker engine
+    - name: Install Docker
       yum:
         name:
           - docker-ce
           - docker-ce-cli
           - containerd.io
-        state: present
+        state: latest
 
-    - name: Enable and start Docker service
+    - name: Enable and start Docker
       service:
         name: docker
         enabled: true
@@ -38,23 +38,26 @@
         groups: docker
         append: yes
 
-    - name: Stop and remove existing n8n container (if any)
+    - name: Stop and remove existing n8n container (if exists)
       shell: docker rm -f n8n || true
       ignore_errors: true
-
-    - name: Remove old n8n data directory
-      file:
-        path: /root/n8n-data
-        state: absent
 
     - name: Remove existing n8n image (optional cleanup)
       shell: docker image rm n8nio/n8n:latest || true
       ignore_errors: true
 
-    - name: Pull n8n image
+    - name: Recreate n8n data directory
+      file:
+        path: /root/n8n-data
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Pull latest n8n image
       shell: docker pull n8nio/n8n:latest
 
-    - name: Run n8n container using docker CLI
+    - name: Run n8n container
       shell: |
         docker run -d --name n8n \
           -p 5678:5678 \
