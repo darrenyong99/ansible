@@ -24,10 +24,10 @@
           - docker-ce
           - docker-ce-cli
           - containerd.io
-        state: latest
+        state: present
 
-    - name: Enable and start Docker
-      service:
+    - name: Enable and start Docker service
+      systemd:
         name: docker
         enabled: true
         state: started
@@ -38,7 +38,7 @@
         groups: docker
         append: yes
 
-    - name: Stop and remove existing n8n container (if exists)
+    - name: Stop and remove existing n8n container if any
       shell: docker rm -f n8n || true
       ignore_errors: true
 
@@ -46,18 +46,19 @@
       shell: docker image rm n8nio/n8n:latest || true
       ignore_errors: true
 
-    - name: Recreate n8n data directory
+    - name: Pull n8n image
+      shell: docker pull n8nio/n8n:latest
+
+    - name: Ensure n8n data directory exists
       file:
         path: /root/n8n-data
         state: directory
-        owner: root
-        group: root
         mode: '0755'
 
-    - name: Pull latest n8n image
-      shell: docker pull n8nio/n8n:latest
+    - name: Fix ownership so n8n container can write to the volume
+      command: chown -R 1000:1000 /root/n8n-data
 
-    - name: Run n8n container
+    - name: Run n8n container using docker CLI
       shell: |
         docker run -d --name n8n \
           -p 5678:5678 \
@@ -74,6 +75,7 @@
           -e N8N_AUTH_EXCLUDE_ENDPOINTS="" \
           -e N8N_DISABLE_PRODUCTION_MAIN_MENU=true \
           -e N8N_SKIP_WEBHOOK_DEREGISTRATION_SHUTDOWN=true \
+          -e N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true \
           n8nio/n8n:latest
       args:
         executable: /bin/bash
