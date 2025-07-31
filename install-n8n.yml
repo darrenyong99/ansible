@@ -54,7 +54,7 @@
           -p 5678:5678 \
           -v /root/n8n-data:/home/node/.n8n \
           -e N8N_BASIC_AUTH_ACTIVE=true \
-          -e N8N_BASIC_AUTH_USER=admin \
+          -e N8N_BASIC_AUTH_USER=admin@gg.com \
           -e N8N_BASIC_AUTH_PASSWORD=QWEqwe123 \
           -e N8N_HOST=0.0.0.0 \
           -e N8N_PORT=5678 \
@@ -65,5 +65,5 @@
           -e N8N_AUTH_EXCLUDE_ENDPOINTS="" \
           -e N8N_DISABLE_PRODUCTION_MAIN_MENU=true \
           -e N8N_SKIP_WEBHOOK_DEREGISTRATION_SHUTDOWN=true \
-          n8nio/n8n:latest n8n
+          n8nio/n8n:latest
 
