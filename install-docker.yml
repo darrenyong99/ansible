@@ -1,27 +1,37 @@
 ---
-- name: Install Docker, Docker Compose, and Docker SDK
+- name: Install and configure Docker, Docker Compose, and Docker SDK for Python
   hosts: all
-  become: yes
+  become: true
+
+  vars:
+    docker_compose_version: "v2.24.6"
 
   tasks:
-    - name: Install required packages
+    - name: Remove any old or broken Docker Python packages
+      pip:
+        name:
+          - docker
+          - docker-py
+          - docker-pycreds
+        state: absent
+        executable: pip3
+
+    - name: Install required system packages
       package:
         name:
           - yum-utils
           - curl
           - device-mapper-persistent-data
           - lvm2
-          - python3
-          - python3-pip
         state: present
 
-    - name: Add Docker CE repo
+    - name: Add Docker CE repository
       command: >
         dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
       args:
         creates: /etc/yum.repos.d/docker-ce.repo
 
-    - name: Install Docker
+    - name: Install Docker engine and CLI
       package:
         name:
           - docker-ce
@@ -29,7 +39,7 @@
           - containerd.io
         state: latest
 
-    - name: Start and enable Docker
+    - name: Start and enable Docker service
       service:
         name: docker
         enabled: yes
@@ -41,22 +51,20 @@
         groups: docker
         append: yes
 
-    - name: Set permissions on docker.sock (DEV/TEST only)
+    - name: Set permissions on Docker socket (DEV/TEST only)
       file:
         path: /var/run/docker.sock
         mode: '0666'
 
-    - name: Install correct Docker Python SDK and dependencies
+    - name: Install latest Docker SDK for Python
       pip:
-        name:
-          - docker>=6.1.3
-          - requests
-          - requests-unixsocket
+        name: docker
+        state: latest
         executable: pip3
 
     - name: Install Docker Compose
       get_url:
-        url: https://github.com/docker/compose/releases/download/v2.24.6/docker-compose-linux-x86_64
+        url: "https://github.com/docker/compose/releases/download/{{ docker_compose_version }}/docker-compose-linux-x86_64"
         dest: /usr/local/bin/docker-compose
         mode: '0755'
 
@@ -69,13 +77,13 @@
       debug:
         msg: "{{ compose_version.stdout }}"
 
-    - name: Test Python Docker SDK access to Docker
+    - name: Verify Docker SDK connectivity to Docker
       command: >
-        python3 -c "import docker; client = docker.DockerClient(base_url='unix:///var/run/docker.sock'); print(client.version())"
-      register: docker_sdk_test
-      failed_when: docker_sdk_test.rc != 0
+        python3 -c "import docker; print(docker.from_env().version())"
+      register: docker_test
       changed_when: false
+      failed_when: docker_test.rc != 0
 
     - name: Show Docker SDK test result
       debug:
-        msg: "{{ docker_sdk_test.stdout }}"
+        msg: "{{ docker_test.stdout }}"
