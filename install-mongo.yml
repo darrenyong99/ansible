@@ -1,46 +1,51 @@
-- name: Install Docker CE and run MongoDB on RHEL 9
+- name: Install and Run MongoDB in Docker (RHEL Compatible)
   hosts: all
   become: true
   vars:
-    ansible_python_interpreter: /usr/bin/python3
+    docker_sock: "unix:///var/run/docker.sock"
 
   tasks:
 
-    - name: Debug which Python is being used
-      command: which python3
-      register: python_path
-
-    - debug:
-        msg: "Ansible is using Python at: {{ python_path.stdout }}"
-
-    - name: Remove podman and podman-docker to avoid Docker CE conflict
-      yum:
-        name:
+    - name: Remove podman and podman-docker (conflicts with Docker CE)
+      package:
+        name: 
           - podman
           - podman-docker
         state: absent
 
-    - name: Add Docker CE repo
+    - name: Add Docker CE repository
       get_url:
         url: https://download.docker.com/linux/centos/docker-ce.repo
         dest: /etc/yum.repos.d/docker-ce.repo
 
-    - name: Install Docker CE and Python3 pip
-      yum:
+    - name: Install Docker and dependencies
+      package:
         name:
           - docker-ce
           - docker-ce-cli
           - containerd.io
+          - python3
           - python3-pip
         state: present
 
-    - name: Start and enable Docker
-      service:
+    - name: Start and enable Docker service
+      systemd:
         name: docker
         state: started
         enabled: true
 
-    - name: Install Python Docker SDK and UNIX socket support
+    - name: Add current user to docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+
+    - name: Set permissions on docker.sock (DEV/TEST only)
+      file:
+        path: /var/run/docker.sock
+        mode: "0666"
+
+    - name: Install Docker SDK for Python
       pip:
         name:
           - docker
@@ -48,33 +53,13 @@
           - requests-unixsocket
         executable: pip3
 
-    - name: Ensure docker.sock is world-readable (for Ansible use)
-      file:
-        path: /var/run/docker.sock
-        mode: '0666'
-
-    - name: Test Docker SDK manually (diagnostic)
-      command: python3 -c "import docker; print(docker.from_env().version())"
-      register: docker_test
-      ignore_errors: true
-
-    - debug:
-        var: docker_test.stdout_lines
-
     - name: Pull MongoDB image
       docker_image:
         name: mongo
         source: pull
+        docker_host: "{{ docker_sock }}"
       environment:
-        DOCKER_HOST: "unix:///var/run/docker.sock"
-      vars:
-        ansible_python_interpreter: /usr/bin/python3
-
-    - name: Pull MongoDB image
-      docker_image:
-        name: mongo
-        source: pull
-        docker_host: unix:///var/run/docker.sock
+        DOCKER_HOST: "{{ docker_sock }}"
 
     - name: Run MongoDB container
       docker_container:
@@ -89,6 +74,6 @@
         env:
           MONGO_INITDB_ROOT_USERNAME: root
           MONGO_INITDB_ROOT_PASSWORD: root
-        docker_host: unix:///var/run/docker.sock
-      vars:
-        ansible_python_interpreter: /usr/bin/python3
+        docker_host: "{{ docker_sock }}"
+      environment:
+        DOCKER_HOST: "{{ docker_sock }}"
