@@ -1,7 +1,17 @@
 - name: Install Docker CE and run MongoDB on RHEL 9
   hosts: all
   become: true
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+
   tasks:
+
+    - name: Show which Python is used by Ansible
+      command: which python3
+      register: python_path
+
+    - debug:
+        msg: "Ansible is using Python at: {{ python_path.stdout }}"
 
     - name: Remove podman and podman-docker to avoid Docker CE conflicts
       yum:
@@ -37,6 +47,11 @@
           - requests
           - requests-unixsocket
         executable: pip3
+
+    - name: Ensure docker.sock is readable by all (dev/test only)
+      file:
+        path: /var/run/docker.sock
+        mode: '0666'
 
     - name: Pull MongoDB image
       docker_image:
