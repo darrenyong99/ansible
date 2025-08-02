@@ -1,51 +1,54 @@
-- name: Install and Run MongoDB in Docker (RHEL Compatible)
+---
+- name: Setup Docker and run MongoDB container
   hosts: all
-  become: true
+  become: yes
+
   vars:
-    docker_sock: "unix:///var/run/docker.sock"
+    docker_compose_version: "v2.24.6"
 
   tasks:
-
-    - name: Remove podman and podman-docker (conflicts with Docker CE)
+    - name: Install required packages
       package:
-        name: 
-          - podman
-          - podman-docker
-        state: absent
+        name:
+          - yum-utils
+          - curl
+          - device-mapper-persistent-data
+          - lvm2
+          - python3
+          - python3-pip
+        state: present
 
-    - name: Add Docker CE repository
-      get_url:
-        url: https://download.docker.com/linux/centos/docker-ce.repo
-        dest: /etc/yum.repos.d/docker-ce.repo
+    - name: Add Docker CE repo
+      command: dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+      args:
+        creates: /etc/yum.repos.d/docker-ce.repo
 
-    - name: Install Docker and dependencies
+    - name: Install Docker
       package:
         name:
           - docker-ce
           - docker-ce-cli
           - containerd.io
-          - python3
-          - python3-pip
-        state: present
+        state: latest
 
-    - name: Start and enable Docker service
-      systemd:
+    - name: Start and enable Docker
+      service:
         name: docker
+        enabled: yes
         state: started
-        enabled: true
 
     - name: Add current user to docker group
       user:
-        name: "{{ ansible_user }}"
+        name: "{{ ansible_user_id }}"
         groups: docker
         append: yes
 
     - name: Set permissions on docker.sock (DEV/TEST only)
       file:
         path: /var/run/docker.sock
-        mode: "0666"
+        mode: '0666'
 
-    - name: Install Docker SDK for Python
+    - name: Install Docker SDK for Python (future use)
       pip:
         name:
           - docker
@@ -53,27 +56,15 @@
           - requests-unixsocket
         executable: pip3
 
-    - name: Pull MongoDB image
-      docker_image:
-        name: mongo
-        source: pull
-        docker_host: "{{ docker_sock }}"
-      environment:
-        DOCKER_HOST: "{{ docker_sock }}"
+    - name: Install Docker Compose
+      get_url:
+        url: "https://github.com/docker/compose/releases/download/{{ docker_compose_version }}/docker-compose-linux-x86_64"
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
 
-    - name: Run MongoDB container
-      docker_container:
-        name: mongodb
-        image: mongo:6
-        state: started
-        restart_policy: always
-        published_ports:
-          - "27017:27017"
-        volumes:
-          - /var/lib/mongo:/data/db
-        env:
-          MONGO_INITDB_ROOT_USERNAME: root
-          MONGO_INITDB_ROOT_PASSWORD: root
-        docker_host: "{{ docker_sock }}"
-      environment:
-        DOCKER_HOST: "{{ docker_sock }}"
+    - name: Run MongoDB container (named mongo-db)
+      shell: |
+        docker rm -f mongo-db || true
+        docker run -d --name mongo-db -p 27017:27017 mongo:latest
+      args:
+        executable: /bin/bash
