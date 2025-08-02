@@ -1,17 +1,16 @@
-- name: Install and Run MongoDB in Docker
+- name: Install and Run MongoDB in Docker (RHEL)
   hosts: all
   become: true
   tasks:
-    - name: Install required system packages
-      apt:
+    - name: Install required system packages for Docker
+      yum:
         name:
-          - docker.io
+          - docker
           - python3-pip
         state: present
-        update_cache: yes
-      when: ansible_os_family == "Debian"
+      when: ansible_os_family == "RedHat"
 
-    - name: Start Docker service
+    - name: Start and enable Docker service
       service:
         name: docker
         state: started
@@ -26,6 +25,8 @@
       docker_image:
         name: mongo
         source: pull
+      environment:
+        DOCKER_HOST: unix:///var/run/docker.sock
 
     - name: Create MongoDB container
       docker_container:
