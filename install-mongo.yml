@@ -1,0 +1,34 @@
+- name: Install and Run MongoDB in Docker
+  hosts: all
+  become: true
+  tasks:
+    - name: Install Docker if not present
+      apt:
+        name: docker.io
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Start Docker service
+      service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Pull MongoDB image
+      docker_image:
+        name: mongo
+        source: pull
+
+    - name: Create MongoDB container
+      docker_container:
+        name: mongodb
+        image: mongo:6
+        state: started
+        restart_policy: always
+        published_ports:
+          - "27017:27017"
+        volumes:
+          - /var/lib/mongo:/data/db
+        env:
+          MONGO_INITDB_ROOT_USERNAME: root
+          MONGO_INITDB_ROOT_PASSWORD: root
