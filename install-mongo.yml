@@ -6,26 +6,26 @@
 
   tasks:
 
-    - name: Show which Python is used by Ansible
+    - name: Debug which Python is being used
       command: which python3
       register: python_path
 
     - debug:
         msg: "Ansible is using Python at: {{ python_path.stdout }}"
 
-    - name: Remove podman and podman-docker to avoid Docker CE conflicts
+    - name: Remove podman and podman-docker to avoid Docker CE conflict
       yum:
         name:
           - podman
           - podman-docker
         state: absent
 
-    - name: Add Docker CE repository
+    - name: Add Docker CE repo
       get_url:
         url: https://download.docker.com/linux/centos/docker-ce.repo
         dest: /etc/yum.repos.d/docker-ce.repo
 
-    - name: Install Docker CE and pip3
+    - name: Install Docker CE and Python3 pip
       yum:
         name:
           - docker-ce
@@ -34,13 +34,13 @@
           - python3-pip
         state: present
 
-    - name: Start and enable Docker service
+    - name: Start and enable Docker
       service:
         name: docker
         state: started
         enabled: true
 
-    - name: Install Python Docker SDK and Unix socket support
+    - name: Install Python Docker SDK and UNIX socket support
       pip:
         name:
           - docker
@@ -48,17 +48,27 @@
           - requests-unixsocket
         executable: pip3
 
-    - name: Ensure docker.sock is readable by all (dev/test only)
+    - name: Ensure docker.sock is world-readable (for Ansible use)
       file:
         path: /var/run/docker.sock
         mode: '0666'
+
+    - name: Test Docker SDK manually (diagnostic)
+      command: python3 -c "import docker; print(docker.from_env().version())"
+      register: docker_test
+      ignore_errors: true
+
+    - debug:
+        var: docker_test.stdout_lines
 
     - name: Pull MongoDB image
       docker_image:
         name: mongo
         source: pull
       environment:
-        DOCKER_HOST: unix:///var/run/docker.sock
+        DOCKER_HOST: "unix:///var/run/docker.sock"
+      vars:
+        ansible_python_interpreter: /usr/bin/python3
 
     - name: Run MongoDB container
       docker_container:
@@ -74,4 +84,6 @@
           MONGO_INITDB_ROOT_USERNAME: root
           MONGO_INITDB_ROOT_PASSWORD: root
       environment:
-        DOCKER_HOST: unix:///var/run/docker.sock
+        DOCKER_HOST: "unix:///var/run/docker.sock"
+      vars:
+        ansible_python_interpreter: /usr/bin/python3
