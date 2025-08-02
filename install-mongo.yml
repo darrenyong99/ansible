@@ -70,6 +70,12 @@
       vars:
         ansible_python_interpreter: /usr/bin/python3
 
+    - name: Pull MongoDB image
+      docker_image:
+        name: mongo
+        source: pull
+        docker_host: unix:///var/run/docker.sock
+
     - name: Run MongoDB container
       docker_container:
         name: mongodb
@@ -83,7 +89,6 @@
         env:
           MONGO_INITDB_ROOT_USERNAME: root
           MONGO_INITDB_ROOT_PASSWORD: root
-      environment:
-        DOCKER_HOST: "unix:///var/run/docker.sock"
+        docker_host: unix:///var/run/docker.sock
       vars:
         ansible_python_interpreter: /usr/bin/python3
