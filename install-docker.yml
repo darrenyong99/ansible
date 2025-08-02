@@ -1,5 +1,5 @@
 ---
-- name: Install Docker and Docker Compose
+- name: Install Docker, Docker Compose, and Docker SDK
   hosts: all
   become: yes
 
@@ -11,6 +11,8 @@
           - curl
           - device-mapper-persistent-data
           - lvm2
+          - python3
+          - python3-pip
         state: present
 
     - name: Add Docker CE repo
@@ -39,6 +41,19 @@
         groups: docker
         append: yes
 
+    - name: Set permissions on docker.sock (DEV/TEST only)
+      file:
+        path: /var/run/docker.sock
+        mode: '0666'
+
+    - name: Install correct Docker Python SDK and dependencies
+      pip:
+        name:
+          - docker>=6.1.3
+          - requests
+          - requests-unixsocket
+        executable: pip3
+
     - name: Install Docker Compose
       get_url:
         url: https://github.com/docker/compose/releases/download/v2.24.6/docker-compose-linux-x86_64
@@ -53,3 +68,14 @@
     - name: Show Docker Compose version
       debug:
         msg: "{{ compose_version.stdout }}"
+
+    - name: Test Python Docker SDK access to Docker
+      command: >
+        python3 -c "import docker; client = docker.DockerClient(base_url='unix:///var/run/docker.sock'); print(client.version())"
+      register: docker_sdk_test
+      failed_when: docker_sdk_test.rc != 0
+      changed_when: false
+
+    - name: Show Docker SDK test result
+      debug:
+        msg: "{{ docker_sdk_test.stdout }}"
